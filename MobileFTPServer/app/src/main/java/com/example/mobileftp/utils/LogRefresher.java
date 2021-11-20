@@ -17,10 +17,10 @@ public class LogRefresher {
 
     public static void refresh(String newLog) {
         if(textView != null) {
-            textView.append(newLog);
             textView.post(new Runnable() {
                 @Override
                 public void run() {
+                    textView.append(newLog);
                     int scrollAmount = textView.getLayout().getLineTop(textView.getLineCount()) - textView.getHeight();
                     if (scrollAmount > 0)
                         textView.scrollTo(0, scrollAmount);

@@ -20,6 +20,11 @@ public class StartBtnListener implements View.OnClickListener {
     public void onClick(View view) {
         startBtn.setEnabled(false);
         Toast.makeText(view.getContext(),"you click the startBtn",Toast.LENGTH_SHORT).show();
-        ftpServer.run();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                ftpServer.run();
+            }
+        }).start();
     }
 }
