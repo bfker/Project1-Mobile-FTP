@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MobileFTP</string>
+    <string name="textBtn">Start</string>
+    <string name="textview">TextView</string>
+</resources>
