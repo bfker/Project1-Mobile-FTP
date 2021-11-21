@@ -1,5 +1,7 @@
 package com.example.mobileftp.utils;
 
+import java.nio.charset.StandardCharsets;
+
 public class Reply {
     private int stCode;
     private String description;
@@ -32,9 +34,11 @@ public class Reply {
                 break;
 
             case 530:
-                description = " Not logged in.";
+                description = "Not logged in.";
                 break;
-
+            case 227:
+                description = "Entering Passive Mode.";
+                break;
         }
     }
 
@@ -46,6 +50,10 @@ public class Reply {
     @Override
     public String toString() {
         return stCode + " "+ description;
+    }
+
+    public byte[] toBytes() {
+        return (stCode + " "+ description).getBytes(StandardCharsets.UTF_8);
     }
 
 }
