@@ -12,7 +12,8 @@ import java.lang.Exception
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import android.content.pm.PackageManager
-
+import android.os.Environment
+import android.os.StrictMode
 import androidx.core.app.ActivityCompat
 
 import androidx.core.content.ContextCompat
@@ -69,6 +70,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {  /*从这里开始运行*/
+        StrictMode.setThreadPolicy(StrictMode.ThreadPolicy.Builder()
+            .detectDiskReads().detectDiskWrites().detectNetwork()
+            .penaltyLog().build());
+        StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder()
+            .detectLeakedSqlLiteObjects().penaltyLog().penaltyDeath()
+            .build());
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         checkPermissions()
@@ -149,11 +156,55 @@ class MainActivity : AppCompatActivity() {
 
     private fun askForList(command: String) {  /*让服务器列出文件列表*/
         askAndAnswer(command)
-        TODO("Not yet implemented")
+        when (currentResponse) {
+            "250" -> toastShow("[Client] ask for list successfully.")
+            else -> toastShow("[Client] Error! Can't ask for list.")
+        }
+    }
+
+    private fun read(sdFileName: String){
+        try {
+            if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
+                var sdCardDIr: File? = getExternalFilesDir(null)
+                var fis: FileInputStream = FileInputStream((sdCardDIr?.canonicalPath) + sdFileName)
+                var br: BufferedReader = BufferedReader(InputStreamReader(fis))
+                var file = FileOutputStream(sdCardDIr, false);
+                var buffer = ByteArray(1024);
+                var size = -1;
+                while (true) {
+                    size = fis.read(buffer)
+                    if(size == -1){
+                        break
+                    }
+                    else file.write(buffer, 0, size);
+                }
+                file.close();
+                fis.close();
+                toastShow("Successfully read !");
+            }
+        }catch (e: Exception){
+            toastShow("Error! Can't read from SD card.")
+        }
     }
 
     private fun storeFile(command: String, args: String?) {
         TODO("Not yet implemented")
+    }
+
+
+    private fun write(content : String, sdFileName: String){
+        try{
+            if(Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
+                var sdCardDIr : File? = getExternalFilesDir(null)
+                var targetFile = File((sdCardDIr?.canonicalPath) + sdFileName)
+                var raf : RandomAccessFile = RandomAccessFile(targetFile, "rw")
+                raf.seek(targetFile.length())
+                raf.write(content.toByteArray())
+                raf.close()
+            }
+        }catch (e: Exception){
+            toastShow("Error! Can't write onto SD card.")
+        }
     }
 
     private fun retrieveFile(command: String, args: String?) {
