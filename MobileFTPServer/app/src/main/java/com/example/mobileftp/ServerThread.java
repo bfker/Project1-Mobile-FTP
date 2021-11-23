@@ -7,16 +7,25 @@ import com.example.mobileftp.utils.FTPLogger;
 import com.example.mobileftp.utils.Reply;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.DataInput;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.InterfaceAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Random;
 import java.util.StringTokenizer;
 import java.util.logging.Logger;
@@ -25,13 +34,13 @@ public class ServerThread extends Thread{
     private boolean usernameStatus = false;
     private boolean loginStatus = false;
     private boolean isAnonymous = false;
-
+    private boolean dataConnectOn = false;
 
 
     private Socket controlSocket = null;//控制连接
     private Socket dataSocket = null;//数据连接
 
-    private ServerSocket passDataSocket = null;
+    private ServerSocket dataSocketServer = null;
     //数据端口
     private int dataPort = -1;
     private final int defaultDataPort = 1089;
@@ -42,6 +51,12 @@ public class ServerThread extends Thread{
     //指令和参数
     private String cmd;
     private String para;
+
+    private String typeCode;
+    private String modeCode;
+    private String struCode;
+
+
 
     //文件根目录地址
     private String rootPath;
@@ -92,7 +107,7 @@ public class ServerThread extends Thread{
                StringTokenizer stringTokenizer = new StringTokenizer(cmdLine);
                cmd = stringTokenizer.nextToken();
                para = stringTokenizer.hasMoreTokens()? stringTokenizer.nextToken():"";
-               switch (cmd) {
+               switch (cmd.toUpperCase()) {
                    case "USER":
                        if(para == null || para == "") {
                            writeCmd(new Reply(332).toString());
@@ -129,12 +144,15 @@ public class ServerThread extends Thread{
                                 psw = para;
                                 FTPLogger.writeLog("User \""+ user + "\" login. " + clientStr, FTPLogger.INFO);
                                 writeCmd(new Reply(230).toString());
-
                             }
                             else {
                                 writeCmd(new Reply(530).toString());
                             }
-                       } else {
+                       }
+                       else if(isAnonymous) {
+                           writeCmd(new Reply(230).toString()); //匿名登录
+                       }
+                       else {
                            writeCmd(new Reply(332).toString());
                        }
                        break;
@@ -146,14 +164,16 @@ public class ServerThread extends Thread{
                            while (true) {
                                dataPort = getRandomPort();
                                try {
-                                   passDataSocket = new ServerSocket(dataPort);
+                                   dataSocketServer = new ServerSocket(dataPort);
                                    curDir = new File(rootPath);
+                                   dataConnectOn = true; //链接开启
                                    break;
                                } catch (IOException e) {}
                            }
-                           String desc = "Entering Passive Mode. " + getHostPortStr(dataPort);
+                           String desc = "Entering passive mode. " + getHostPortStr(dataPort);
                            writeCmd(new Reply(227, getHostPortStr(dataPort)).toString());
-                           FTPLogger.writeLog(desc + clientStr, FTPLogger.INFO);
+                           FTPLogger.writeLog(desc + " " + clientStr, FTPLogger.INFO);
+                           dataSocket = dataSocketServer.accept(); //连接
                        }
                        break;
                    case "PORT":
@@ -167,12 +187,17 @@ public class ServerThread extends Thread{
                             try{
                                 dataPort = defaultDataPort;//设置成主动模式默认端口
                                 if(analyseHostPortStr(para)) {
-                                    FTPLogger.writeLog("ip="+clientDataIP + " port= "+clientDataPort ,FTPLogger.INFO);
                                     try {
+                                        FTPLogger.writeLog("Trying to connect "+clientDataIP+":"+ clientDataPort, FTPLogger.INFO);
+
                                         dataSocket = new Socket(clientDataIP,clientDataPort);
+                                        //dataSocket.bind(new InetSocketAddress(dataPort));
+                                       //dataSocket.connect(new InetSocketAddress(clientDataIP,clientDataPort));
+
                                         writeCmd(new Reply(200).toString());
-                                        FTPLogger.writeLog("Entering Passive Mode. " + clientStr, FTPLogger.INFO);
+                                        FTPLogger.writeLog("Entering active mode. " + clientStr, FTPLogger.INFO);
                                     } catch (Exception e) {
+                                        FTPLogger.writeLog("Connect failed "+ e.toString(),FTPLogger.ERROR);
                                         writeCmd(new Reply(501).toString());
                                     }
                                 }
@@ -185,6 +210,169 @@ public class ServerThread extends Thread{
                                 FTPLogger.writeLog("wrong para", FTPLogger.INFO);
                             }
                        }
+                       break;
+                   case "LIST" ://匿名用户可以list
+                       if(!dataConnectOn) { //此时数据连接已建立，dataSocket已存在
+                            writeCmd(new Reply(425).toString());
+                       }
+                       else {
+                           try {
+                               String msg = "";
+                               File[] fileList = curDir.listFiles();
+                               for(File file : fileList) {
+                                   msg = msg + " " + file.getName();
+                               }
+                               writeCmd("250"+msg);
+
+                           } catch (Exception e) {
+                               FTPLogger.writeLog("List failed. " + clientStr, FTPLogger.ERROR);
+                           }
+
+                       }
+                       break;
+                   case "TYPE":
+                       switch (para) {
+                           case "I":
+                           case "A":
+                           case "E":
+                           case "L":
+                               setType(para);
+                               break;
+                           default:
+                               writeCmd(new Reply(501).toString());
+                               break;
+                       }
+                       break;
+                   case "MODE":
+                       switch (para) {
+                           case "S":
+                           case "B":
+                           case "C":
+                               setMode(para);
+                               break;
+                           default:
+                               writeCmd(new Reply(501).toString());
+                               break;
+                       }
+                       break;
+                   case "STRU":
+                       switch (para) {
+                           case "F":
+                           case "R":
+                           case "P":
+                               setStru(para);
+                               break;
+                           default:
+                               writeCmd(new Reply(501).toString());
+                               break;
+                       }
+                       break;
+                   case "STOR"://只实现单一文件 客户端上传到服务器
+                       if(!loginStatus) {//未登录
+                           writeCmd(new Reply(530).toString());
+                           break;
+                       } else if(!dataConnectOn) { //数据连接未建立
+                           writeCmd(new Reply(425).toString());
+                           break;
+                       }
+                       try {
+                           String pathName = para;
+                           File file = new File(rootPath + "/" + pathName);
+                           if(typeCode == "I") {//二进制
+                               FileOutputStream fileOutput = new FileOutputStream(file);
+                               DataInputStream dataReader = new DataInputStream(dataSocket.getInputStream());/*字节数据输出流*/
+                               byte[] bytes = new byte[1024];
+                               int len = 0;
+                               while((len = dataReader.read(bytes, 0 ,bytes.length)) >= 0) {
+                                   fileOutput.write(bytes, 0 ,len);
+                                   fileOutput.flush();
+                               }
+                               fileOutput.close();
+                               dataReader.close();
+                           } else { //ascii
+                               BufferedWriter fileOutput = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file),"ASCII"));
+                               BufferedReader dataReader = new BufferedReader(new InputStreamReader(dataSocket.getInputStream(),"ASCII"));
+                               byte[] bytes = new byte[1024];
+                               String line;
+                               while((line = dataReader.readLine())!=null) {
+                                   fileOutput.write(line);
+                                   fileOutput.newLine();
+                                   fileOutput.flush();
+                               }
+                               dataReader.close();
+                               fileOutput.close();
+
+                           }
+                           dataConnectOn = false;
+                           dataSocket.close();
+                           dataSocketServer.close();//???
+
+                       } catch (Exception e) {
+                           writeCmd(new Reply(451).toString());
+                       }
+                       break;
+                   case "RETR"://服务器下载到客户端
+                       if(!loginStatus) {//未登录
+                           writeCmd(new Reply(530).toString());
+                           break;
+                       } else if(!dataConnectOn) { //数据连接未建立
+                           writeCmd(new Reply(425).toString());
+                           break;
+                       }
+
+                       String pathName = para;
+                       try {
+                           File file = new File(rootPath + "/" + pathName);
+                           if(!file.exists()) { //不存在
+                               writeCmd(new Reply(450).toString());
+                           } else if(file.isFile()){//存在而且是文件
+                               if(typeCode == "I") {//二进制
+                                   FileInputStream fileInput = new FileInputStream(file);
+
+                                   DataOutputStream dataWriter = new DataOutputStream(dataSocket.getOutputStream());/*字节数据输出流*/
+                                   byte[] bytes = new byte[1024];
+                                   int len = 0;
+                                   while((len = fileInput.read(bytes, 0 ,bytes.length)) >= 0) {
+                                       dataWriter.write(bytes, 0 ,len);
+                                       dataWriter.flush();
+                                   }
+                                   dataWriter.close();
+                                   fileInput.close();
+                               } else { //ascii
+                                   BufferedReader fileInput = new BufferedReader(new InputStreamReader(new FileInputStream(file),"ASCII"));
+                                   BufferedWriter dataWriter = new BufferedWriter(new OutputStreamWriter(dataSocket.getOutputStream(),"ASCII"));
+                                   byte[] bytes = new byte[1024];
+                                   String line;
+                                   while((line = fileInput.readLine())!=null) {
+                                       dataWriter.write(line);
+                                       dataWriter.newLine();
+                                       dataWriter.flush();
+                                   }
+                                   dataWriter.close();
+                                   fileInput.close();
+
+                               }
+                               dataConnectOn = false;
+                               dataSocket.close();
+                               dataSocketServer.close();//???
+                           } else {
+                               writeCmd(new Reply(502).toString());
+                           }
+                       } catch (Exception e) {
+                            writeCmd(new Reply(451).toString());
+                       }
+                    break;
+                   case "NOOP":
+                       writeCmd(new Reply(200).toString());
+                       break;
+                   case "QUIT":
+                       init();
+                       writeCmd(new Reply(221).toString());
+                       cmdWriter.close();
+                       cmdReader.close();
+                       FTPLogger.writeLog(clientStr + " quit.",FTPLogger.INFO);
+                       break;
+
                }
            }
         } catch (IOException e) {
@@ -194,6 +382,15 @@ public class ServerThread extends Thread{
     }
 
     private void init() {
+        dataConnectOn = false;
+        usernameStatus = false;
+        loginStatus = false;
+        isAnonymous = false;
+
+        typeCode = "I";
+        modeCode = "S";
+        struCode = "F";
+
         rootPath = Environment.getExternalStorageDirectory().getPath();
     }
 
@@ -236,6 +433,22 @@ public class ServerThread extends Thread{
         return true;
     }
 
+    private void setType(String newTypeCode) {
+        typeCode = newTypeCode;
+        FTPLogger.writeLog("Set type "+typeCode+"."+clientStr,FTPLogger.INFO);
+        writeCmd(new Reply(200).toString());
+    }
 
+    private void setMode(String newModeCode) {
+        modeCode = newModeCode;
+        FTPLogger.writeLog("Set mode "+modeCode+"."+clientStr,FTPLogger.INFO);
+        writeCmd(new Reply(200).toString());
+    }
+
+    private void setStru(String newStruCode) {
+        struCode = newStruCode;
+        FTPLogger.writeLog("Set struct "+struCode+"."+clientStr,FTPLogger.INFO);
+        writeCmd(new Reply(200).toString());
+    }
 
 }
