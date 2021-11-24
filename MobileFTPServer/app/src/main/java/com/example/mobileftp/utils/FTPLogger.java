@@ -13,6 +13,8 @@ public class FTPLogger {
     //private static String logTxt = "";
     public static final int INFO = 0;
     public static final int ERROR = -1;
+    public static final int WARNING = 1;
+
     private static String getTimeStamp() {
         DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Date date = new Date();

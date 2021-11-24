@@ -9,6 +9,14 @@ public class Reply {
     public Reply(int stCode) {
         this.stCode = stCode;
         switch (stCode){
+
+            case 125:
+                description = "Data connection already open; transfer starting.";
+                break;
+            case 150:
+                description = "File status okay; about to open data connection.";
+                break;
+
             case 200:
                 description = "OK.";
                 break;
@@ -16,6 +24,11 @@ public class Reply {
             case 221:
                 description = "Service closing control connection.";
                 break;
+
+            case 226:
+                description = "File received ok. Closing data connection.";
+                break;
+
             case 227:
                 description = "Entering Passive Mode.";
                 break;

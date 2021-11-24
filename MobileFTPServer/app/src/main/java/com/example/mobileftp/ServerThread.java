@@ -19,11 +19,13 @@ import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.InterfaceAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Random;
@@ -118,7 +120,7 @@ public class ServerThread extends Thread{
                                isAnonymous = true;
                                usernameStatus = false;
                                loginStatus = false;
-                               cmdWriter.println(new Reply(230, "User logged in as anonymous.").toString());
+                               writeCmd(new Reply(230, "User logged in as anonymous.").toString());
                                FTPLogger.writeLog("Login as anonymous user. " + clientStr, FTPLogger.INFO);
                            }
                            else
@@ -132,7 +134,7 @@ public class ServerThread extends Thread{
                                usernameStatus = true;
                            }
                            else {
-                               writeCmd(new Reply(331).toString());
+                               writeCmd(new Reply(332).toString());
                            }
                        }
                        break;
@@ -281,6 +283,9 @@ public class ServerThread extends Thread{
                            if(typeCode == "I") {//二进制
                                FileOutputStream fileOutput = new FileOutputStream(file);
                                DataInputStream dataReader = new DataInputStream(dataSocket.getInputStream());/*字节数据输出流*/
+                               //告知一文件没有问题，可以开始传输
+                               writeCmd(new Reply(125,"BINARY Data connection already open; transfer starting.").toString());
+
                                byte[] bytes = new byte[1024];
                                int len = 0;
                                while((len = dataReader.read(bytes, 0 ,bytes.length)) >= 0) {
@@ -289,9 +294,15 @@ public class ServerThread extends Thread{
                                }
                                fileOutput.close();
                                dataReader.close();
+                               writeCmd(new Reply(226).toString());
+                               FTPLogger.writeLog("Data connection closed. " + clientStr, FTPLogger.INFO);
+
                            } else { //ascii
                                BufferedWriter fileOutput = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file),"ASCII"));
                                BufferedReader dataReader = new BufferedReader(new InputStreamReader(dataSocket.getInputStream(),"ASCII"));
+
+                               writeCmd(new Reply(125,"ASCII Data connection already open; transfer starting.").toString());
+
                                byte[] bytes = new byte[1024];
                                String line;
                                while((line = dataReader.readLine())!=null) {
@@ -301,6 +312,8 @@ public class ServerThread extends Thread{
                                }
                                dataReader.close();
                                fileOutput.close();
+                               writeCmd(new Reply(226).toString());
+                               FTPLogger.writeLog("Data connection closed. " + clientStr, FTPLogger.INFO);
 
                            }
                            dataConnectOn = false;
@@ -328,8 +341,9 @@ public class ServerThread extends Thread{
                            } else if(file.isFile()){//存在而且是文件
                                if(typeCode == "I") {//二进制
                                    FileInputStream fileInput = new FileInputStream(file);
-
                                    DataOutputStream dataWriter = new DataOutputStream(dataSocket.getOutputStream());/*字节数据输出流*/
+                                   writeCmd(new Reply(125,"BINARY Data connection already open; transfer starting.").toString());
+
                                    byte[] bytes = new byte[1024];
                                    int len = 0;
                                    while((len = fileInput.read(bytes, 0 ,bytes.length)) >= 0) {
@@ -338,9 +352,12 @@ public class ServerThread extends Thread{
                                    }
                                    dataWriter.close();
                                    fileInput.close();
+                                   writeCmd(new Reply(226).toString());
                                } else { //ascii
                                    BufferedReader fileInput = new BufferedReader(new InputStreamReader(new FileInputStream(file),"ASCII"));
                                    BufferedWriter dataWriter = new BufferedWriter(new OutputStreamWriter(dataSocket.getOutputStream(),"ASCII"));
+                                   writeCmd(new Reply(125,"ASCII Data connection already open; transfer starting.").toString());
+
                                    byte[] bytes = new byte[1024];
                                    String line;
                                    while((line = fileInput.readLine())!=null) {
@@ -350,7 +367,7 @@ public class ServerThread extends Thread{
                                    }
                                    dataWriter.close();
                                    fileInput.close();
-
+                                   writeCmd(new Reply(226).toString());
                                }
                                dataConnectOn = false;
                                dataSocket.close();
@@ -405,7 +422,8 @@ public class ServerThread extends Thread{
         return str;
     }
 
-    private void writeCmd(String str) {
+    private void writeCmd(String str) throws UnsupportedEncodingException {
+        FTPLogger.writeLog("Server: " + str + " " +clientStr,FTPLogger.INFO);
         cmdWriter.println(str);
         cmdWriter.flush();
     }
@@ -433,19 +451,19 @@ public class ServerThread extends Thread{
         return true;
     }
 
-    private void setType(String newTypeCode) {
+    private void setType(String newTypeCode) throws UnsupportedEncodingException {
         typeCode = newTypeCode;
         FTPLogger.writeLog("Set type "+typeCode+"."+clientStr,FTPLogger.INFO);
         writeCmd(new Reply(200).toString());
     }
 
-    private void setMode(String newModeCode) {
+    private void setMode(String newModeCode) throws UnsupportedEncodingException {
         modeCode = newModeCode;
         FTPLogger.writeLog("Set mode "+modeCode+"."+clientStr,FTPLogger.INFO);
         writeCmd(new Reply(200).toString());
     }
 
-    private void setStru(String newStruCode) {
+    private void setStru(String newStruCode) throws UnsupportedEncodingException {
         struCode = newStruCode;
         FTPLogger.writeLog("Set struct "+struCode+"."+clientStr,FTPLogger.INFO);
         writeCmd(new Reply(200).toString());
