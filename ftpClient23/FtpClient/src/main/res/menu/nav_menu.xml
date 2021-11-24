@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/transfer_mode"
+            android:title="设置数据传输连接方式"/>
+        <item
+            android:id="@+id/FtpServerDirectory"
+            android:title="查看服务器文件"/>
+        <item
+            android:id="@+id/LocalDirectory"
+            android:title="查看本地文件"/>
+        <item
+            android:id="@+id/disconnect"
+            android:title="断开当前连接"/>
+    </group>
+
+</menu>
