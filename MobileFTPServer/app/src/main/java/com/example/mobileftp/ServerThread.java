@@ -214,8 +214,8 @@ public class ServerThread extends Thread{
                        }
                        break;
                    case "LIST" ://匿名用户可以list
-                       if(!dataConnectOn) { //此时数据连接已建立，dataSocket已存在
-                            writeCmd(new Reply(425).toString());
+                       if((!loginStatus ) && (!isAnonymous)) { //此时数据连接已建立，dataSocket已存在
+                           writeCmd(new Reply(530).toString());
                        }
                        else {
                            try {
@@ -227,6 +227,7 @@ public class ServerThread extends Thread{
                                writeCmd("250"+msg);
 
                            } catch (Exception e) {
+                               writeCmd(new Reply(451).toString());
                                FTPLogger.writeLog("List failed. " + clientStr, FTPLogger.ERROR);
                            }
 
@@ -389,6 +390,8 @@ public class ServerThread extends Thread{
                        cmdReader.close();
                        FTPLogger.writeLog(clientStr + " quit.",FTPLogger.INFO);
                        break;
+                   default:
+                       writeCmd(new Reply(500).toString());
 
                }
            }
