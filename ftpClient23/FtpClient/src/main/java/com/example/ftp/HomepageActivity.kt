@@ -76,6 +76,9 @@ class HomepageActivity : AppCompatActivity() {
                     val intent = Intent(this, MainActivity::class.java)
                     startActivity(intent)
                 }
+                else{
+                    toastShow("Can't connect!")
+                }
             } catch (e: IOException) {
                 toastShow("Error! Can't connect!")
             }
@@ -99,7 +102,7 @@ class HomepageActivity : AppCompatActivity() {
         }
         passParameters(serverAddress, username, password)
         if (!connect(myUser)) {
-            toastShow("anonymous log in!")
+            toastShow("Wrong IP address!")
             return false
         }
         return true

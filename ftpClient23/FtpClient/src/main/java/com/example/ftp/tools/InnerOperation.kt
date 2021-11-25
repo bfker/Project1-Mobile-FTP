@@ -43,8 +43,8 @@ object InnerOperation {
 
     @JvmStatic
     fun connect(passUser: String?): Boolean {
-        success = true
-        Thread {
+        success = false
+        val t = Thread {
             try {
                 if (myClient!!.haslogin) {
                     myClient!!.closeConnection()
@@ -53,7 +53,7 @@ object InnerOperation {
                     "anonymous" -> if (myClient!!.tryConnect(serverAddress, port)) {
                         success = true
                     }
-                    username -> if (myClient!!.tryConnect(serverAddress, port)) {
+                    else -> if (myClient!!.tryConnect(serverAddress, port)) {
                         if (myClient!!.tryLogin(username!!, password!!)) {
                             success = true
                         }
@@ -62,28 +62,33 @@ object InnerOperation {
             } catch (e: IOException) {
                 success = false
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return success
     }
 
     @JvmStatic
     @Throws(IOException::class)
     fun disconnect(): Boolean {
-        success = true
-        Thread {
+        success = false
+        var t = Thread {
             try {
                 myClient!!.closeConnection()
                 myClient!!.transferDisconnect()
+                success = true
             } catch (e: IOException) {
                 success = false
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return success
     }
 
     fun upload(remotePath: String?, localPath: String?): Boolean {
         success = true
-        Thread {
+        var t = Thread {
             success = try {
                 if (remotePath != null) {
                     myClient!!.upload(remotePath, localPath)
@@ -92,104 +97,122 @@ object InnerOperation {
             } catch (e: IOException) {
                 false
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return success
     }
 
     fun download(remotePath: String?, localPath: String?, filename: String?): Boolean {
         success = true
-        Thread {
+        var t = Thread {
             success = try {
                 myClient!!.download(remotePath!!, localPath!!, filename!!)
                 true
             } catch (e: IOException) {
                 false
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return success
     }
 
     fun dummyPacket(command: String): String {
         var result = ""
-        Thread {
+        var t = Thread {
             result = try {
                 myClient!!.noop(command)
             }catch (e:IOException){
                 "NOOP error!"
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return result
     }
 
     fun setTransferStructure(command: String, args: String?): String {
         var result = ""
-        Thread {
+        var t = Thread {
             result = try {
                 myClient!!.stru(command,args)
             }catch (e:IOException){
                 "STRU error!"
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return result
     }
 
     fun setTransferMode(command: String, args: String?): String {
         var result = ""
-        Thread {
+        var t = Thread {
             result = try {
                 myClient!!.mode(command, args)
             }catch (e:IOException){
                 "MODE error!"
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return result
     }
 
     fun setTransferType(command: String, args: String?): String {
         var result = ""
-        Thread {
+        var t = Thread {
             result = try {
                 myClient!!.type(command, args)
             }catch (e:IOException){
                 "TYPE error!"
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return result
     }
 
     fun specifyAddressAndPort(command: String, args: String?): String {
         var result = ""
-        Thread {
+        val t = Thread {
             result = try {
                 myClient!!.port(command, args)
             }catch (e:IOException){
-                "PORT error!"
+                "PORT thread error!"
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return result
     }
 
     fun enterPassive(command: String): String {
         var result = ""
-        Thread {
+        val t = Thread {
             result = try {
                 myClient!!.pasv(command)
             }catch (e:IOException){
                 "PASV error!"
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return result
     }
 
     fun disconnect(command: String): String {
         var result = ""
-        Thread {
+        var t = Thread {
             result = try {
                 myClient!!.quit(command)
             }catch (e:IOException){
                 "QUIT error!"
             }
-        }.start()
+        }
+        t.start()
+        t.join(5000)
         return result
     }
 
