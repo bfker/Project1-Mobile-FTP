@@ -27,6 +27,8 @@ class Client23 {
     private var type: TransferType = TransferType.ASCII  /*传输类型，根据服务器反馈调整*/
     private var mode: TransferMode = TransferMode.STREAM  /*传输模式，根据服务器反馈调整*/
     private var structure: TransferStructure = TransferStructure.FILE /*传输结构，根据服务器反馈调整*/
+    private lateinit var response : String
+    private lateinit var responseDiv : Array<String>
     var haslogin = false
     var hastransfer = false
     var connectMode = ConMode.PASV
@@ -59,7 +61,7 @@ class Client23 {
 
     @Throws(IOException::class)
     fun tryConnect(newAddress: String?, newPort: Int): Boolean {
-        var success: Boolean
+        var success = false
         serverAddress = newAddress
         try {
             controlSocket = Socket(serverAddress, newPort)
@@ -84,10 +86,10 @@ class Client23 {
     @Throws(IOException::class)
     fun tryLogin(username: String, password: String): Boolean {
         var success = false
-        askAndAnswer("USER $username\n")
+        askAndAnswer("USER $username")
         when(currentResponse){
             "331" -> {
-                askAndAnswer("PASS $password\n")
+                askAndAnswer("PASS $password")
                 if (currentResponse == "230") {
                     state = UserStates.IN
                     success = true
@@ -109,35 +111,6 @@ class Client23 {
     }
 
     @Throws(IOException::class)
-    private fun enterPassive(): Boolean {
-        var success = false
-        askAndAnswer("PASV\n")
-        if (currentResponse == "200") {
-            transferSocket = Socket(serverAddress, transferPort)
-            transferout = transferSocket!!.getOutputStream()
-            transferin = transferSocket!!.getInputStream()
-            success = true
-        }
-        return success
-    }
-
-    @Throws(IOException::class)
-    private fun specifyAddress(): Boolean {
-        var flag = false
-        val serverSocket = ServerSocket(myPort)
-        transferSocket = serverSocket.accept()
-        val myAddress = controlSocket!!.localAddress
-        val command = "PORT $transferPort $myAddress\n"
-        askAndAnswer(command)
-        if (currentResponse == "200") {
-            transferout = transferSocket!!.getOutputStream()
-            transferin = transferSocket!!.getInputStream()
-            flag = true
-        }
-        return flag
-    }
-
-    @Throws(IOException::class)
     fun ask(command: String?) {
         controlwriter!!.println(command)
         controlwriter!!.flush()
@@ -145,9 +118,10 @@ class Client23 {
 
     @Throws(IOException::class)
     fun answer() {
-        val response = controlreader!!.readLine().split(" ").toTypedArray()
-        currentResponse = response[0]
-        responseParameter = response[1]
+        response = controlreader!!.readLine()
+        responseDiv = response.split(" ").toTypedArray()
+        currentResponse = responseDiv[0]
+        responseParameter = responseDiv[1]
     }
 
     private fun askAndAnswer(command: String){
@@ -166,14 +140,6 @@ class Client23 {
         }
         br.flush()
     }
-
-
-    @Throws(IOException::class)
-    fun mode(mode: String) {
-        val command = "MODE $mode\n"
-        askAndAnswer(command)
-    }
-
 
     @Throws(IOException::class)
     fun noop(command: String) : String{
@@ -219,57 +185,55 @@ class Client23 {
 
     @Throws(IOException::class)
     fun pasv(command: String) : String{
-        currentResponse = "pasv error!"
+        currentResponse = "pasv inner error!"
         askAndAnswer(command)
-        val index = currentResponse.indexOf(' ')
-        val responseName = if (index == -1) currentResponse else currentResponse.substring(0, index)
-        /* 截取第一部分 这一部分是应答数字*/
-        val args = if (index == -1) null else currentResponse.substring(index + 1) /*而后面的则是参数*/
-        when (responseName) {
+        when (currentResponse) {
             "227" -> {
-                val stringSplit = args!!.split(",".toRegex()).toTypedArray()
+                val stringSplit = (responseDiv[1])!!.split(",".toRegex()).toTypedArray()
                 val hostName =
                     stringSplit[0] + "." + stringSplit[1] + "." + stringSplit[2] + "." + stringSplit[3]
                 val port = stringSplit[4].toInt() * 256 + stringSplit[5].toInt()
                 try {
-                    transferSocket = Socket()
-                    transferSocket!!.bind(InetSocketAddress(transferPort))
-                    transferSocket!!.connect(InetSocketAddress(hostName, port))
-                    transferReader =
-                        BufferedReader(InputStreamReader(transferSocket!!.getInputStream()))
-                    transferWriter =
-                        PrintWriter(OutputStreamWriter(transferSocket!!.getOutputStream()))
+                    transferSocket = Socket(hostName, port)
+                    val outputStream = transferSocket!!.getOutputStream()
+                    transferWriter = PrintWriter(OutputStreamWriter(outputStream))
+                    val inputStream = transferSocket!!.getInputStream()
+                    transferReader = BufferedReader(InputStreamReader(inputStream))
                 } catch (e: Exception) {
                     return "Can't connect in passive mode!"
                 }
             }
-            else -> return "pasv Error!"
+            "530" -> return  "not log in!"
+            else -> return "pasv number Error!"
         }
         return currentResponse
     }
 
     @Throws(IOException::class)
     fun port(command: String, args: String?) : String{
-        currentResponse = "pasv error!"
+        currentResponse = "port inner error!"
         askAndAnswer(command)
         val stringSplit = args!!.split(",".toRegex()).toTypedArray()
         val port = stringSplit[4].toInt() * 256 + stringSplit[5].toInt()
         transferPort = port
-        askAndAnswer(command)
         when(currentResponse){
             "200" -> {
                 try {
                     transferSocketPassive = ServerSocket(transferPort)
                     transferSocket = transferSocketPassive!!.accept()
-                    transferWriter = PrintWriter(OutputStreamWriter(transferSocket!!.getOutputStream()))
-                    transferReader = BufferedReader(InputStreamReader(transferSocket!!.getInputStream()))
+                    val outputStream = transferSocket!!.getOutputStream()
+                    transferWriter = PrintWriter(OutputStreamWriter(outputStream))
+                    val inputStream = transferSocket!!.getInputStream()
+                    transferReader = BufferedReader(InputStreamReader(inputStream))
                 } catch (e: IOException) {
                     return "Can't connect in port !"
                 }
             }
+            "530" -> return  "530 not log in!"
+            "501" -> return "501 Wrong parameter!"
             else -> return "port error"
         }
-        return currentResponse
+        return response
     }
 
     @Throws(IOException::class)
@@ -280,7 +244,6 @@ class Client23 {
             "221" -> {
                 transferDisconnect()
                 controlSocket!!.close()
-                transferSocket!!.close()
                 controlwriter!!.close()
                 controlreader!!.close()
             }
@@ -301,7 +264,7 @@ class Client23 {
     // QUIT
     @Throws(IOException::class)
     fun closeConnection() {
-        ask("QUIT\n")
+        ask("QUIT")
         controlreader!!.close()
         controlwriter!!.close()
         controlSocket!!.close()
