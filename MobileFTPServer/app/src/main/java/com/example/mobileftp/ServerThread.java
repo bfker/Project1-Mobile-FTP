@@ -17,15 +17,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.InterfaceAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Random;
@@ -94,7 +93,7 @@ public class ServerThread extends Thread{
         try {
             //命令输入流和命令输出流
             cmdReader = new BufferedReader(new InputStreamReader(controlSocket.getInputStream()));
-            cmdWriter = new PrintWriter(new ObjectOutputStream(controlSocket.getOutputStream()));
+            cmdWriter = new PrintWriter(new OutputStreamWriter(controlSocket.getOutputStream()));
 
             //连接成功
             writeCmd(new Reply(200, "Connect successfully").toString());
@@ -228,7 +227,7 @@ public class ServerThread extends Thread{
 
                            } catch (Exception e) {
                                writeCmd(new Reply(451).toString());
-                               FTPLogger.writeLog("List failed. " + clientStr, FTPLogger.ERROR);
+                               FTPLogger.writeLog("List failed. " +e.toString() + clientStr, FTPLogger.ERROR);
                            }
 
                        }
@@ -425,7 +424,7 @@ public class ServerThread extends Thread{
         return str;
     }
 
-    private void writeCmd(String str) throws UnsupportedEncodingException {
+    private void writeCmd(String str) {
         FTPLogger.writeLog("Server: " + str + " " +clientStr,FTPLogger.INFO);
         cmdWriter.println(str);
         cmdWriter.flush();
@@ -454,19 +453,19 @@ public class ServerThread extends Thread{
         return true;
     }
 
-    private void setType(String newTypeCode) throws UnsupportedEncodingException {
+    private void setType(String newTypeCode) {
         typeCode = newTypeCode;
         FTPLogger.writeLog("Set type "+typeCode+"."+clientStr,FTPLogger.INFO);
         writeCmd(new Reply(200).toString());
     }
 
-    private void setMode(String newModeCode) throws UnsupportedEncodingException {
+    private void setMode(String newModeCode) {
         modeCode = newModeCode;
         FTPLogger.writeLog("Set mode "+modeCode+"."+clientStr,FTPLogger.INFO);
         writeCmd(new Reply(200).toString());
     }
 
-    private void setStru(String newStruCode) throws UnsupportedEncodingException {
+    private void setStru(String newStruCode) {
         struCode = newStruCode;
         FTPLogger.writeLog("Set struct "+struCode+"."+clientStr,FTPLogger.INFO);
         writeCmd(new Reply(200).toString());
