@@ -74,8 +74,6 @@ public class ServerThread extends Thread{
     private InetAddress clientAdd= null;
     private InetAddress localAdd= null;
 
-    private File curDir = null;
-
 
     public ServerThread(Socket socket) {
         this.controlSocket = socket;
@@ -95,7 +93,7 @@ public class ServerThread extends Thread{
             cmdReader = new BufferedReader(new InputStreamReader(controlSocket.getInputStream()));
             cmdWriter = new PrintWriter(new OutputStreamWriter(controlSocket.getOutputStream()));
 
-            //连接成功
+            //
             writeCmd(new Reply(200, "Connect successfully").toString());
 
             clientStr = "Client " + clientAdd.getHostAddress()+":"+controlSocket.getPort();
@@ -166,7 +164,6 @@ public class ServerThread extends Thread{
                                dataPort = getRandomPort();
                                try {
                                    dataSocketServer = new ServerSocket(dataPort);
-                                   curDir = new File(rootPath);
                                    dataConnectOn = true; //链接开启
                                    break;
                                } catch (IOException e) {}
@@ -219,7 +216,7 @@ public class ServerThread extends Thread{
                        else {
                            try {
                                String msg = "";
-                               File[] fileList = curDir.listFiles();
+                               File[] fileList = new File(rootPath).listFiles();
                                for(File file : fileList) {
                                    msg = msg + " " + file.getName();
                                }
