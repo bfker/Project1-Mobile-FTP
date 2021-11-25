@@ -300,11 +300,10 @@ public class ServerThread extends Thread{
 
                                writeCmd(new Reply(125,"ASCII Data connection already open; transfer starting.").toString());
 
-                               byte[] bytes = new byte[1024];
-                               String line;
-                               while((line = dataReader.readLine())!=null) {
-                                   fileOutput.write(line);
-                                   fileOutput.newLine();
+                               char[] chars = new char[1024];
+                               int len;
+                               while((len = dataReader.read(chars, 0, chars.length))>=0) {
+                                   fileOutput.write(chars,0,len);
                                    fileOutput.flush();
                                }
                                dataReader.close();
@@ -355,11 +354,10 @@ public class ServerThread extends Thread{
                                    BufferedWriter dataWriter = new BufferedWriter(new OutputStreamWriter(dataSocket.getOutputStream(),"ASCII"));
                                    writeCmd(new Reply(125,"ASCII Data connection already open; transfer starting.").toString());
 
-                                   byte[] bytes = new byte[1024];
-                                   String line;
-                                   while((line = fileInput.readLine())!=null) {
-                                       dataWriter.write(line);
-                                       dataWriter.newLine();
+                                   char[] chars = new char[1024];
+                                   int len = 0;
+                                   while((len = fileInput.read(chars, 0, chars.length)) >= 0) {
+                                       dataWriter.write(chars,0,len);
                                        dataWriter.flush();
                                    }
                                    dataWriter.close();
