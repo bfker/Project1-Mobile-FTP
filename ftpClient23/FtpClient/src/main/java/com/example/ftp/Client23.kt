@@ -212,15 +212,15 @@ class Client23 {
     @Throws(IOException::class)
     fun port(command: String, args: String?) : String{
         currentResponse = "port inner error!"
-        askAndAnswer(command)
         val stringSplit = args!!.split(",".toRegex()).toTypedArray()
         val port = stringSplit[4].toInt() * 256 + stringSplit[5].toInt()
         transferPort = port
+        transferSocketPassive = ServerSocket(transferPort)
+        askAndAnswer(command)
+        transferSocket = transferSocketPassive!!.accept()
         when(currentResponse){
             "200" -> {
                 try {
-                    transferSocketPassive = ServerSocket(transferPort)
-                    transferSocket = transferSocketPassive!!.accept()
                     val outputStream = transferSocket!!.getOutputStream()
                     transferWriter = PrintWriter(OutputStreamWriter(outputStream))
                     val inputStream = transferSocket!!.getInputStream()
